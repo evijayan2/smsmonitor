@@ -26,7 +26,7 @@ export default async function DashboardPage() {
   });
 
   // Decrypt sensitive fields
-  const messages = rawMessages.map(msg => ({
+  const messages = rawMessages.map((msg: typeof rawMessages[number]) => ({
     ...msg,
     sender: decrypt(msg.sender),
     content: decrypt(msg.content),
