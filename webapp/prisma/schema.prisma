@@ -19,6 +19,7 @@ model SmsMessage {
   receiver   String?
   timestamp  DateTime
   receivedAt DateTime @default(now())
+  isRead     Boolean  @default(false)
 
   @@map("sms_messages")
 }

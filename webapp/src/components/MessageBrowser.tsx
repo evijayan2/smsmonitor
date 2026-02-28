@@ -13,7 +13,9 @@ import {
     Layers,
     RefreshCw,
     Filter,
-    Hash
+    Hash,
+    Copy,
+    Check
 } from "lucide-react";
 
 interface SmsMessage {
@@ -23,6 +25,7 @@ interface SmsMessage {
     content: string;
     receivedAt: Date;
     timestamp: Date;
+    isRead?: boolean;
 }
 
 interface MessageBrowserProps {
@@ -35,13 +38,36 @@ export default function MessageBrowser({ initialMessages }: MessageBrowserProps)
         initialMessages.length > 0 ? initialMessages[0] : null
     );
     const [searchQuery, setSearchQuery] = useState("");
-    const [groupByReceiver, setGroupByReceiver] = useState(false);
+    const [groupByDate, setGroupByDate] = useState(true);
+    const [copied, setCopied] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const handleRefresh = () => {
         setIsRefreshing(true);
         router.refresh();
         setTimeout(() => setIsRefreshing(false), 1000);
+    };
+
+    const handleCopy = () => {
+        if (!selectedMessage) return;
+        navigator.clipboard.writeText(selectedMessage.content);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleMessageSelect = async (msg: SmsMessage) => {
+        setSelectedMessage(msg);
+
+        if (!msg.isRead) {
+            msg.isRead = true;
+            try {
+                await fetch(`/api/sms/${msg.id}/read`, { method: "PATCH" });
+            } catch (error) {
+                console.error("Failed to mark message as read:", error);
+                msg.isRead = false;
+            }
+            router.refresh();
+        }
     };
 
     const filteredMessages = initialMessages.filter((msg) =>
@@ -51,16 +77,21 @@ export default function MessageBrowser({ initialMessages }: MessageBrowserProps)
     );
 
     const groupedMessages = useMemo(() => {
-        if (!groupByReceiver) return null;
+        if (!groupByDate) return null;
 
         const groups: Record<string, SmsMessage[]> = {};
         filteredMessages.forEach(msg => {
-            const key = msg.receiver || "Unknown";
+            const dateObj = new Date(msg.receivedAt);
+            const key = dateObj.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
             if (!groups[key]) groups[key] = [];
             groups[key].push(msg);
         });
         return groups;
-    }, [filteredMessages, groupByReceiver]);
+    }, [filteredMessages, groupByDate]);
 
     return (
         <div className="flex bg-background rounded-3xl border border-border overflow-hidden h-[calc(100vh-12rem)] transition-colors duration-300">
@@ -76,14 +107,14 @@ export default function MessageBrowser({ initialMessages }: MessageBrowserProps)
                             <RefreshCw className="w-4 h-4" />
                         </button>
                         <button
-                            onClick={() => setGroupByReceiver(!groupByReceiver)}
-                            className={`flex items-center space-x-2 px-3 py-2 rounded-xl border transition-all text-xs font-medium ${groupByReceiver
+                            onClick={() => setGroupByDate(!groupByDate)}
+                            className={`flex items-center space-x-2 px-3 py-2 rounded-xl border transition-all text-xs font-medium ${groupByDate
                                 ? "bg-blue-600/10 border-blue-500/30 text-blue-600 dark:text-blue-400"
                                 : "bg-card border-border text-muted-foreground hover:text-foreground"
                                 }`}
                         >
-                            <Filter className="w-3.5 h-3.5" />
-                            <span>{groupByReceiver ? "Grouped" : "Group by Receiver"}</span>
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span>{groupByDate ? "Grouped" : "Group by Date"}</span>
                         </button>
                     </div>
                     <div className="relative">
@@ -104,13 +135,13 @@ export default function MessageBrowser({ initialMessages }: MessageBrowserProps)
                             <Smartphone className="w-10 h-10 text-muted-foreground/30 mb-2" />
                             <p className="text-sm text-muted-foreground">No messages found</p>
                         </div>
-                    ) : groupByReceiver ? (
-                        Object.entries(groupedMessages!).map(([receiver, messages]) => (
-                            <div key={receiver} className="mb-2">
+                    ) : groupByDate ? (
+                        Object.entries(groupedMessages!).map(([dateGroup, messages]) => (
+                            <div key={dateGroup} className="mb-2">
                                 <div className="sticky top-0 z-10 bg-muted/90 backdrop-blur-sm px-4 py-2 border-y border-border flex items-center space-x-2">
-                                    <Hash className="w-3.5 h-3.5 text-blue-500" />
+                                    <Calendar className="w-3.5 h-3.5 text-blue-500" />
                                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                        Receiver: {receiver}
+                                        {dateGroup}
                                     </span>
                                     <span className="text-[10px] bg-accent text-muted-foreground px-1.5 py-0.5 rounded-md ml-auto">
                                         {messages.length}
@@ -119,25 +150,28 @@ export default function MessageBrowser({ initialMessages }: MessageBrowserProps)
                                 {messages.map((msg) => (
                                     <button
                                         key={msg.id}
-                                        onClick={() => setSelectedMessage(msg)}
-                                        className={`w-full text-left p-4 transition-all border-b border-border/50 flex items-start space-x-3 group ${selectedMessage?.id === msg.id
+                                        onClick={() => handleMessageSelect(msg)}
+                                        className={`w-full relative text-left p-4 transition-all border-b border-border/50 flex items-start space-x-3 group ${selectedMessage?.id === msg.id
                                             ? "bg-blue-600/10 border-l-4 border-l-blue-600"
                                             : "hover:bg-muted/50 border-l-4 border-l-transparent"
                                             }`}
                                     >
+                                        {!msg.isRead && (
+                                            <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                                        )}
                                         <div className={`w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0 border border-border transition-colors ${selectedMessage?.id === msg.id ? "group-hover:border-blue-500/50" : ""}`}>
                                             <User className={`w-5 h-5 transition-colors ${selectedMessage?.id === msg.id ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"}`} />
                                         </div>
-                                        <div className="flex-1 min-w-0">
+                                        <div className="flex-1 min-w-0 pr-6">
                                             <div className="flex items-center justify-between mb-0.5">
-                                                <span className={`text-sm font-bold truncate ${selectedMessage?.id === msg.id ? "text-blue-600 dark:text-blue-400" : "text-foreground"}`}>
+                                                <span className={`text-sm ${msg.isRead ? 'font-medium' : 'font-bold'} truncate ${selectedMessage?.id === msg.id ? "text-blue-600 dark:text-blue-400" : "text-foreground"}`}>
                                                     {msg.sender}
                                                 </span>
-                                                <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                                                <span className={`text-[10px] ${msg.isRead ? 'text-muted-foreground' : 'text-blue-500 font-bold'} whitespace-nowrap ml-2`}>
                                                     {new Date(msg.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                             </div>
-                                            <p className="text-xs text-muted-foreground line-clamp-1">
+                                            <p className={`text-xs ${msg.isRead ? 'text-muted-foreground' : 'text-foreground/90 font-medium'} line-clamp-1`}>
                                                 {msg.content}
                                             </p>
                                         </div>
@@ -149,25 +183,28 @@ export default function MessageBrowser({ initialMessages }: MessageBrowserProps)
                         filteredMessages.map((msg) => (
                             <button
                                 key={msg.id}
-                                onClick={() => setSelectedMessage(msg)}
-                                className={`w-full text-left p-4 transition-all border-b border-border/50 flex items-start space-x-3 group ${selectedMessage?.id === msg.id
+                                onClick={() => handleMessageSelect(msg)}
+                                className={`w-full relative text-left p-4 transition-all border-b border-border/50 flex items-start space-x-3 group ${selectedMessage?.id === msg.id
                                     ? "bg-blue-600/10 border-l-4 border-l-blue-600"
                                     : "hover:bg-muted/50 border-l-4 border-l-transparent"
                                     }`}
                             >
+                                {!msg.isRead && (
+                                    <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                                )}
                                 <div className={`w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0 border border-border transition-colors ${selectedMessage?.id === msg.id ? "group-hover:border-blue-500/50" : ""}`}>
                                     <User className={`w-5 h-5 transition-colors ${selectedMessage?.id === msg.id ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"}`} />
                                 </div>
-                                <div className="flex-1 min-w-0">
+                                <div className="flex-1 min-w-0 pr-6">
                                     <div className="flex items-center justify-between mb-0.5">
-                                        <span className={`text-sm font-bold truncate ${selectedMessage?.id === msg.id ? "text-blue-600 dark:text-blue-400" : "text-foreground"}`}>
+                                        <span className={`text-sm ${msg.isRead ? 'font-medium' : 'font-bold'} truncate ${selectedMessage?.id === msg.id ? "text-blue-600 dark:text-blue-400" : "text-foreground"}`}>
                                             {msg.sender}
                                         </span>
-                                        <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                                        <span className={`text-[10px] ${msg.isRead ? 'text-muted-foreground' : 'text-blue-500 font-bold'} whitespace-nowrap ml-2`}>
                                             {new Date(msg.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-muted-foreground line-clamp-1">
+                                    <p className={`text-xs ${msg.isRead ? 'text-muted-foreground' : 'text-foreground/90 font-medium'} line-clamp-1`}>
                                         {msg.content}
                                     </p>
                                 </div>
@@ -217,6 +254,13 @@ export default function MessageBrowser({ initialMessages }: MessageBrowserProps)
                                     <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Message Body</span>
                                 </div>
                                 <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group">
+                                    <button
+                                        onClick={handleCopy}
+                                        className="absolute top-4 right-4 z-20 p-2 rounded-xl bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
+                                        title="Copy message text"
+                                    >
+                                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                    </button>
                                     <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                                         <Layers className="w-24 h-24 text-blue-600 dark:text-blue-500 rotate-12" />
                                     </div>
@@ -279,7 +323,14 @@ export default function MessageBrowser({ initialMessages }: MessageBrowserProps)
                             </div>
                         </div>
 
-                        <div className="bg-card border border-border rounded-2xl p-6 mb-8">
+                        <div className="bg-card border border-border rounded-2xl p-6 mb-8 relative">
+                            <button
+                                onClick={handleCopy}
+                                className="absolute top-4 right-4 z-20 p-2 rounded-xl bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
+                                title="Copy message text"
+                            >
+                                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                            </button>
                             <p className="text-foreground leading-relaxed whitespace-pre-wrap">{selectedMessage.content}</p>
                         </div>
 
