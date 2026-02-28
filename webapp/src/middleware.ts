@@ -1,6 +1,16 @@
 import { withAuth } from "next-auth/middleware";
+import { NextRequest } from "next/server";
 
-export const middleware = withAuth();
+export default withAuth(
+    function middleware(_req: NextRequest) {
+        // Auth is handled by withAuth - authorized users pass through
+    },
+    {
+        callbacks: {
+            authorized: ({ token }) => !!token,
+        },
+    }
+);
 
 export const config = {
     // Protect all routes except auth-related and the SMS ingestion API
