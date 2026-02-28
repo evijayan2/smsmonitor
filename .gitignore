@@ -19,3 +19,5 @@ temp_gradle
 *.txt
 .idea
 secrets
+.vercel
+.env*.local
