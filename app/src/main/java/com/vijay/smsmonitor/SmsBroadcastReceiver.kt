@@ -23,16 +23,29 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
                 val subscriptionId = intent.getIntExtra("subscription", -1)
                 var receiverNumber = "Unknown"
 
-                if (subscriptionId != -1) {
+                try {
                     val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
-                    try {
+                    if (subscriptionId != -1) {
                         val activeSubscriptionInfo = subscriptionManager.getActiveSubscriptionInfo(subscriptionId)
-                        receiverNumber = activeSubscriptionInfo?.number ?: "Unknown"
-                        // Fallback: If number is null but we have the info, we might try other ways, 
-                        // but for now, we'll stick to this.
-                    } catch (e: SecurityException) {
-                        Log.e("SmsBroadcastReceiver", "Permission denied for READ_PHONE_STATE", e)
+                        val num = activeSubscriptionInfo?.number
+                        if (!num.isNullOrEmpty()) receiverNumber = num
                     }
+                    if (receiverNumber == "Unknown") {
+                        val activeSubscriptionInfoList = subscriptionManager.activeSubscriptionInfoList
+                        if (!activeSubscriptionInfoList.isNullOrEmpty()) {
+                            val num = activeSubscriptionInfoList[0].number
+                            if (!num.isNullOrEmpty()) receiverNumber = num
+                        }
+                    }
+                    if (receiverNumber == "Unknown") {
+                        val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as android.telephony.TelephonyManager
+                        val line1Number = telephonyManager.line1Number
+                        if (!line1Number.isNullOrEmpty()) receiverNumber = line1Number
+                    }
+                } catch (e: SecurityException) {
+                    Log.e("SmsBroadcastReceiver", "Permission denied for telephony", e)
+                } catch (e: Exception) {
+                    Log.e("SmsBroadcastReceiver", "Error getting receiver number", e)
                 }
 
                 Log.d("SmsBroadcastReceiver", "SMS received from $sender to $receiverNumber: $messageBody")

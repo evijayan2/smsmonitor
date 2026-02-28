@@ -30,6 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.app.NotificationManagerCompat
+import android.content.Intent
+import android.provider.Settings
 import com.vijay.smsmonitor.ui.theme.SMSMonitorTheme
 
 class MainActivity : ComponentActivity() {
@@ -59,6 +62,10 @@ fun SmsMonitorConfigScreen(modifier: Modifier = Modifier) {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
         )
+    }
+
+    val isNotificationListenerEnabled = remember(context) {
+        NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     }
 
     val launcher = rememberLauncherForActivityResult(
@@ -110,10 +117,17 @@ fun SmsMonitorConfigScreen(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        val permissionsToRequest = arrayOf(
+            Manifest.permission.RECEIVE_SMS,
+            Manifest.permission.READ_SMS,
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.READ_PHONE_NUMBERS
+        )
+
         if (!hasPermission) {
             Button(
                 onClick = {
-                    launcher.launch(arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS))
+                    launcher.launch(permissionsToRequest)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -122,11 +136,32 @@ fun SmsMonitorConfigScreen(modifier: Modifier = Modifier) {
         } else {
             Text(text = "✅ SMS Permissions Granted", color = androidx.compose.ui.graphics.Color.Green)
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (!isNotificationListenerEnabled) {
+            Button(
+                onClick = {
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Grant Notification Access (For RCS)")
+            }
+        } else {
+            Text(text = "✅ Notification Access (RCS) Granted", color = androidx.compose.ui.graphics.Color.Green)
+        }
     }
 
     LaunchedEffect(Unit) {
         if (!hasPermission) {
-            launcher.launch(arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS))
+            val permissionsToRequest = arrayOf(
+                Manifest.permission.RECEIVE_SMS,
+                Manifest.permission.READ_SMS,
+                Manifest.permission.READ_PHONE_STATE,
+                Manifest.permission.READ_PHONE_NUMBERS
+            )
+            launcher.launch(permissionsToRequest)
         }
     }
 }
