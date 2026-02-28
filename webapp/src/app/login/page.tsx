@@ -4,8 +4,9 @@ import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle } from "lucide-react";
+import { Suspense } from "react";
 
-export default function LoginPage() {
+function LoginContent() {
     const searchParams = useSearchParams();
     const error = searchParams.get("error");
 
@@ -85,5 +86,13 @@ export default function LoginPage() {
 
             <div className="absolute top-0 left-0 w-full h-full -z-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense>
+            <LoginContent />
+        </Suspense>
     );
 }
