@@ -21,3 +21,5 @@ temp_gradle
 secrets
 .vercel
 .env*.local
+*-lock.yaml
+package-lock.json

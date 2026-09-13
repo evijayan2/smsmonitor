@@ -10,6 +10,7 @@ import MessageBrowser from "@/components/MessageBrowser";
 import LogoutButton from "@/components/LogoutButton";
 import ThemeToggle from "@/components/ThemeToggle";
 import { decrypt } from "@/lib/encryption";
+import { SmsMessage } from "@/types/sms";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -93,7 +94,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <MessageBrowser initialMessages={messages as any} />
+        <MessageBrowser initialMessages={messages as SmsMessage[]} />
       </main>
     </div>
   );
